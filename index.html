@@ -167,6 +167,13 @@ button, input, select { font: inherit; color: inherit; }
 .hero__art { position: relative; flex: 1 1 0; min-height: 170px; margin-inline: -20px; }
 .hero__art canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; }
 .hero__art canvas:active { cursor: grabbing; }
+.hero__text { padding-top: 18px; }
+.art__hint, .part { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
+.art__hint { font-size: 14px; color: var(--muted); pointer-events: none; }
+.part { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 99px; background: var(--btn); color: var(--btn-text); font-size: 15px; font-weight: 600; text-decoration: none; font-variant-numeric: tabular-nums; animation: pop .2s ease; }
+.part span { font-weight: 400; opacity: .72; }
+@keyframes pop { from { opacity: 0; transform: translateX(-50%) translateY(6px); } }
+.cat.is-hit { outline: 2px solid var(--text); outline-offset: 2px; }
 h1 { font-size: clamp(44px, 12.5vw, 104px); line-height: .98; letter-spacing: -.04em; font-weight: 700; }
 .hero__lead { margin-top: 20px; max-width: 30em; font-size: clamp(17px, 2vw, 21px); color: var(--muted); }
 .status { display: inline-flex; align-items: center; gap: 10px; margin-top: 26px; font-size: 16px; font-weight: 500; min-height: 26px; }
@@ -360,7 +367,7 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
 
 <!-- 1. Первый экран -->
 <section class="wrap hero">
-  <div class="hero__art" id="art" aria-hidden="true"><canvas id="wheel"></canvas></div>
+  <div class="hero__art" id="art"><canvas id="wheel" aria-hidden="true"></canvas><p class="art__hint" id="art-hint" hidden>Нажмите на деталь</p><a class="part" id="part" href="#prices" hidden></a></div>
   <div class="hero__text">
     <h1>С. Т. О.<br>на Габишева</h1>
     <p class="hero__lead">Автосервис, развал-схождение, шиномонтаж и запчасти в Казани.</p>
@@ -548,6 +555,7 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
   addEventListener('scroll', function () { top.classList.toggle('is-stuck', scrollY > 8); }, { passive: true });
 
   var io = 'IntersectionObserver' in window;
+  var catalog = [];
   var heroSeen = true, cart = [];     // cart: выбранные работы, живёт только до закрытия страницы
   function syncBar() {
     $('bar').classList.toggle('has-cart', cart.length > 0);
@@ -577,7 +585,7 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
     if (!ctx) return;
     var calm = matchMedia('(prefers-reduced-motion: reduce)');
     var TAU = Math.PI * 2, lines = [], face = [];
-    function add(pts, spin, red) { lines.push({ p: pts, s: spin, r: red }); }
+    function add(pts, spin, red, zone) { lines.push({ p: pts, s: spin, r: red, z: zone }); }
     function ring(r, z, n, a0, a1) {
       var pts = [], i; n = n || 72; a0 = a0 || 0; a1 = a1 === undefined ? TAU : a1;
       for (i = 0; i <= n; i++) { var a = a0 + (a1 - a0) * i / n; pts.push([r * Math.cos(a), r * Math.sin(a), z]); }
@@ -585,27 +593,28 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
     }
     var i, a;
     /* шина */
-    [[1, .2], [1, -.2], [.95, .29], [.95, -.29], [.68, .27], [.68, -.27]].forEach(function (c) { add(ring(c[0], c[1]), 1); });
-    for (i = 0; i < 40; i++) { a = TAU * i / 40; add([[.95 * Math.cos(a), .95 * Math.sin(a), .29], [Math.cos(a), Math.sin(a), .2], [Math.cos(a + .05), Math.sin(a + .05), -.2], [.95 * Math.cos(a + .05), .95 * Math.sin(a + .05), -.29]], 1); }
+    [[1, .2], [1, -.2], [.95, .29], [.95, -.29], [.68, .27], [.68, -.27]].forEach(function (c) { add(ring(c[0], c[1]), 1, 0, 'tyre'); });
+    for (i = 0; i < 40; i++) { a = TAU * i / 40; add([[.95 * Math.cos(a), .95 * Math.sin(a), .29], [Math.cos(a), Math.sin(a), .2], [Math.cos(a + .05), Math.sin(a + .05), -.2], [.95 * Math.cos(a + .05), .95 * Math.sin(a + .05), -.29]], 1, 0, 'tyre'); }
     /* диск колеса */
     add(ring(.64, .25), 1); add(ring(.6, .21), 1); add(ring(.64, -.25), 1);
-    add(ring(.17, .2, 36), 1); add(ring(.07, .22, 24), 1);
+    add(ring(.17, .2, 36), 1, 0, 'hub'); add(ring(.07, .22, 24), 1, 0, 'hub');
     for (i = 0; i < 5; i++) {
       a = TAU * i / 5;
       add([[.17 * Math.cos(a - .34), .17 * Math.sin(a - .34), .2], [.6 * Math.cos(a - .07), .6 * Math.sin(a - .07), .21]], 1);
       add([[.17 * Math.cos(a + .34), .17 * Math.sin(a + .34), .2], [.6 * Math.cos(a + .07), .6 * Math.sin(a + .07), .21]], 1);
       var b = a + TAU / 10, bx = .118 * Math.cos(b), by = .118 * Math.sin(b);
-      add(ring(.024, .2, 10).map(function (q) { return [q[0] + bx, q[1] + by, q[2]]; }), 1);
+      add(ring(.024, .2, 10).map(function (q) { return [q[0] + bx, q[1] + by, q[2]]; }), 1, 0, 'hub');
     }
     /* тормозной диск */
-    add(ring(.5, .05), 1); add(ring(.5, -.01), 1); add(ring(.24, .05, 48), 1);
-    for (i = 0; i < 24; i++) { a = TAU * i / 24; var rr = i % 2 ? .44 : .34, hx = rr * Math.cos(a), hy = rr * Math.sin(a); add(ring(.014, .05, 6).map(function (q) { return [q[0] + hx, q[1] + hy, q[2]]; }), 1); }
+    add(ring(.5, .05), 1, 0, 'brake'); add(ring(.5, -.01), 1, 0, 'brake'); add(ring(.24, .05, 48), 1, 0, 'brake');
+    for (i = 0; i < 24; i++) { a = TAU * i / 24; var rr = i % 2 ? .44 : .34, hx = rr * Math.cos(a), hy = rr * Math.sin(a); add(ring(.014, .05, 6).map(function (q) { return [q[0] + hx, q[1] + hy, q[2]]; }), 1, 0, 'brake'); }
     /* суппорт: стоит на месте */
     var c0 = .25, c1 = 1.05, f = ring(.57, .12, 14, c0, c1).concat(ring(.33, .12, 14, c1, c0)); f.push(f[0]);
     var k = ring(.57, -.08, 14, c0, c1).concat(ring(.33, -.08, 14, c1, c0)); k.push(k[0]);
     add(f, 0, 1); add(k, 0, 1); face = f;
     [[.57, c0], [.57, c1], [.33, c0], [.33, c1]].forEach(function (e) { add([[e[0] * Math.cos(e[1]), e[0] * Math.sin(e[1]), .12], [e[0] * Math.cos(e[1]), e[0] * Math.sin(e[1]), -.08]], 0, 1); });
 
+    var zone = '', picked = '', geo = null;
     var W = 0, H = 0, dpr = 1, yaw = -.62, pitch = .13, spin = 0, drag = null, ink, red, seen = true, raf = 0, last = 0;
     function colors() { var st = getComputedStyle(document.documentElement); ink = st.getPropertyValue('--text').trim(); red = st.getPropertyValue('--accent').trim(); }
     function size() {
@@ -616,6 +625,7 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
       if (!W || !H) return;
       var cs = Math.cos(spin), sn = Math.sin(spin), cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
       var sc = Math.min(W, H) * .43, ox = W / 2, oy = H / 2, D = 4.6;
+      geo = { sc: sc, ox: ox, oy: oy, D: D, cy: cy, sy: sy, cp: cp, sp: sp };
       function pr(q, s) {
         var x = q[0], y = q[1], z = q[2], t;
         if (s) { t = x * cs - y * sn; y = x * sn + y * cs; x = t; }
@@ -630,7 +640,7 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
         for (j = 1; j < L.p.length; j++) {
           B = pr(L.p[j], L.s);
           bi = Math.max(0, Math.min(3, Math.floor(((A[2] + B[2]) / 2 + 1) * 2)));
-          bins[bi + (L.r ? 4 : 0)].push(A[0], A[1], B[0], B[1]);
+          bins[bi + (L.r || (zone && L.z === zone) ? 4 : 0)].push(A[0], A[1], B[0], B[1]);
           A = B;
         }
       }
@@ -656,9 +666,55 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
     addEventListener('scroll', function () { if (!calm.matches) base = scrollY * .0045; if (seen) kick(); }, { passive: true });
     addEventListener('resize', function () { size(); kick(); });
     document.addEventListener('visibilitychange', kick);
-    cv.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, yaw: yaw }; try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
-    cv.addEventListener('pointermove', function (e) { if (!drag) return; yaw = Math.max(-1.25, Math.min(1.25, drag.yaw + (e.clientX - drag.x) * .008)); kick(); });
-    ['pointerup', 'pointercancel'].forEach(function (ev) { cv.addEventListener(ev, function () { drag = null; }); });
+    /* Какая деталь под пальцем: луч из точки экрана до плоскости колеса */
+    function zoneAt(e) {
+      if (!geo) return '';
+      var r = cv.getBoundingClientRect(), g = geo, sx = (e.clientX - r.left - g.ox) / g.sc, sy = -(e.clientY - r.top - g.oy) / g.sc;
+      function local(z) {
+        var X = sx * (g.D - z) / g.D, Y = sy * (g.D - z) / g.D, y = Y * g.cp + z * g.sp, z1 = -Y * g.sp + z * g.cp;
+        return [X * g.cy - z1 * g.sy, y, X * g.sy + z1 * g.cy];
+      }
+      var p0 = local(0), p1 = local(1), t = (.1 - p0[2]) / (p1[2] - p0[2]);
+      var d = Math.hypot(p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t);
+      return d > 1.04 ? '' : d >= .6 ? 'tyre' : d >= .2 ? 'brake' : 'hub';
+    }
+    var PARTS = { tyre: ['Шины и колёса', /кол[её]с|шин/i], brake: ['Тормоза', /тормоз/i], hub: ['Подвеска', /подвес|рулев/i] };
+    function showPart(z) {
+      var el = $('part'), cat = null, min = 0;
+      picked = z; zone = z; $('art-hint').hidden = true;
+      if (!z) { el.hidden = true; return; }
+      catalog.forEach(function (c) { if (!cat && PARTS[z][1].test(c.title)) cat = c; });
+      if (cat) cat.items.forEach(function (it) { if (typeof it.price === 'number' && (!min || it.price < min)) min = it.price; });
+      el.innerHTML = esc(PARTS[z][0]) + ' <span>' + (min ? 'от ' + money(min) + '\u00A0₽' : 'цена по запросу') + '</span><svg class="icon"><use href="#i-arrow"/></svg>';
+      el.dataset.cat = cat ? cat.title : '';
+      el.hidden = true; void el.offsetWidth; el.hidden = false;
+      goal('wheel_part', { part: PARTS[z][0] });
+    }
+    $('part').addEventListener('click', function (e) {
+      var card = null, want = this.dataset.cat;
+      document.querySelectorAll('.cat').forEach(function (c) { if (c.dataset.cat === want) card = c; });
+      if (!card) return;
+      e.preventDefault();
+      card.classList.add('is-in', 'is-hit');
+      card.scrollIntoView({ behavior: calm.matches ? 'auto' : 'smooth', block: 'center' });
+      setTimeout(function () { card.classList.remove('is-hit'); }, 2200);
+    });
+    cv.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, yaw: yaw, moved: false }; try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
+    cv.addEventListener('pointermove', function (e) {
+      if (!drag) {
+        if (e.pointerType === 'mouse') { var z = zoneAt(e) || picked; cv.style.cursor = zoneAt(e) ? 'pointer' : ''; if (z !== zone) { zone = z; kick(); } }
+        return;
+      }
+      if (Math.abs(e.clientX - drag.x) > 6) drag.moved = true;
+      if (drag.moved) { yaw = Math.max(-1.25, Math.min(1.25, drag.yaw + (e.clientX - drag.x) * .008)); kick(); }
+    });
+    cv.addEventListener('pointerup', function (e) {
+      if (drag && !drag.moved && Math.abs(e.clientY - drag.y) < 8) { var z = zoneAt(e); showPart(z === picked ? '' : z); kick(); }
+      drag = null;
+    });
+    cv.addEventListener('pointercancel', function () { drag = null; });
+    cv.addEventListener('pointerleave', function () { if (zone !== picked) { zone = picked; kick(); } });
+    $('art-hint').hidden = false;
     if (io) new IntersectionObserver(function (en) { seen = en[0].isIntersecting; if (seen) kick(); }).observe(cv);
     new MutationObserver(function () { colors(); kick(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { colors(); kick(); });
@@ -669,9 +725,10 @@ h2 { font-size: clamp(30px, 5vw, 48px); line-height: 1.06; letter-spacing: -.03e
   function money(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
 
   function renderPrices(data) {
+    catalog = data.categories;
     var html = '', options = '<option value="">Выберите услугу</option>';
     data.categories.forEach(function (cat) {
-      html += '<section class="card cat reveal"><h3>' + esc(cat.title) + '</h3><ul>';
+      html += '<section class="card cat reveal" data-cat="' + esc(cat.title) + '"><h3>' + esc(cat.title) + '</h3><ul>';
       options += '<optgroup label="' + esc(cat.title) + '">';
       cat.items.forEach(function (it) {
         var name = esc(it.name);
